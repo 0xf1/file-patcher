@@ -26,19 +26,35 @@ namespace patcher
 
             var stringBytes = searchString.Split(' ');
             var searchPattern = new byte[stringBytes.Length];
+            var searchPatternSkip = new bool[stringBytes.Length];
             for (int i = 0; i < stringBytes.Length; i++)
             {
-                searchPattern[i] = byte.Parse(stringBytes[i], System.Globalization.NumberStyles.HexNumber);
+                if (stringBytes[i] == "??")
+                {
+                    searchPatternSkip[i] = true;
+                }
+                else {
+                    searchPattern[i] = byte.Parse(stringBytes[i], System.Globalization.NumberStyles.HexNumber);
+                }
+                
             }
 
             stringBytes = replaceString.Split(' ');
             var replacePattern = new byte[stringBytes.Length];
+            var replacePatternSkip = new bool[stringBytes.Length];
             for (int i = 0; i < stringBytes.Length; i++)
             {
-                replacePattern[i] = byte.Parse(stringBytes[i], System.Globalization.NumberStyles.HexNumber);
+                if (stringBytes[i] == "??")
+                {
+                    replacePatternSkip[i] = true;
+                }
+                else
+                {
+                    replacePattern[i] = byte.Parse(stringBytes[i], System.Globalization.NumberStyles.HexNumber);
+                }
             }
 
-            var patches = new List<int>();
+            var offsets = new List<int>();
 
             var fileBytes = File.ReadAllBytes(binaryFileName);
             for (int filePos = 0; filePos < fileBytes.Length; filePos++)
@@ -50,7 +66,7 @@ namespace patcher
                 
                 for (int patternPos = 0; patternPos < searchPattern.Length; patternPos++)
                 {
-                    if (fileBytes[filePos] != searchPattern[patternPos])
+                    if (fileBytes[filePos] != searchPattern[patternPos] && !searchPatternSkip[patternPos] )
                     {
                         break;
                     }
@@ -58,22 +74,26 @@ namespace patcher
 
                     if (patternPos == searchPattern.Length -1)
                     {
-                        patches.Add(filePos - patternPos - 1);
+                        offsets.Add(filePos - patternPos - 1);
                     }
                 }    
                 
             }
             
-            foreach(int patchPos in patches)
+            foreach(int offset in offsets)
             {
-                for(int i=0; i < replacePattern.Length; i++)
+                //Console.WriteLine($"Offset found: {offset} (hex: {offset.ToString("X10")})");
+                for(int replacePatterPos = 0; replacePatterPos < replacePattern.Length; replacePatterPos++)
                 {
-                    fileBytes[patchPos + i] = replacePattern[i];
+                    if (!replacePatternSkip[replacePatterPos])
+                    {
+                        fileBytes[offset + replacePatterPos] = replacePattern[replacePatterPos];
+                    }
                 }
             }
 
             File.WriteAllBytes(binaryFileName, fileBytes);
-            Console.WriteLine($"Applied total patches count: {patches.Count}");
+            Console.WriteLine($"Applied total patches count: {offsets.Count}");
             Console.WriteLine("Press any key to continue...");
             Console.ReadKey();
         }
